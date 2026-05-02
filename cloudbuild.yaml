@@ -1,0 +1,40 @@
+steps:
+  # 1. Source-Based Build using Google Cloud Buildpacks
+  - name: 'gcr.io/k8s-skaffold/pack'
+    entrypoint: 'pack'
+    args: 
+      - 'build'
+      - 'gcr.io/$PROJECT_ID/election-guide-backend:$COMMIT_SHA'
+      - '--builder'
+      - 'gcr.io/buildpacks/builder:v1'
+      - '--path'
+      - './backend'
+    id: 'Source-Based-Build'
+
+  # 2. Security Scan using Container Analysis
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: 
+      - 'artifacts'
+      - 'docker'
+      - 'images'
+      - 'scan'
+      - 'gcr.io/$PROJECT_ID/election-guide-backend:$COMMIT_SHA'
+      - '--format=json'
+    id: 'Security-Scan'
+
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'election-guide-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/election-guide-backend:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+    id: 'Deploy-Backend'
+
+images:
+  - 'gcr.io/$PROJECT_ID/election-guide-backend:$COMMIT_SHA'

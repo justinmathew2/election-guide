@@ -1,0 +1,25 @@
+displayName: "Assistant Latency Dashboard"
+gridLayout:
+  columns: "2"
+  widgets:
+    - title: "Advisor Latency (ms) - 95th Percentile"
+      xyChart:
+        dataSets:
+          - timeSeriesQuery:
+              timeSeriesFilter:
+                filter: 'metric.type="logging.googleapis.com/user/election_advisor_latency" AND resource.type="global"'
+                aggregation:
+                  alignmentPeriod: "60s"
+                  perSeriesAligner: "ALIGN_PERCENTILE_95"
+                  crossSeriesReducer: "REDUCE_PERCENTILE_95"
+        chartOptions:
+          mode: COLOR
+    - title: "Total Unique Queries Anonymized"
+      scorecard:
+        timeSeriesQuery:
+          timeSeriesFilter:
+            filter: 'metric.type="logging.googleapis.com/user/election_advisor_queries" AND resource.type="global"'
+            aggregation:
+              alignmentPeriod: "60s"
+              perSeriesAligner: "ALIGN_RATE"
+              crossSeriesReducer: "REDUCE_SUM"
