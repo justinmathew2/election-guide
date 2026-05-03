@@ -20,6 +20,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta
+          httpEquiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://election-guide-backend-927623157898.us-central1.run.app;"
+        />
+      </head>
       <body
         className={`${publicSans.variable} antialiased font-sans bg-background text-on-surface`}
       >

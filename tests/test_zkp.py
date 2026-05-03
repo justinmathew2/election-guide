@@ -25,3 +25,15 @@ def test_zkp_unique_salts():
     result2 = generate_eligibility_proof(age=30, location="TX")
     
     assert result1["zkp_proof"] != result2["zkp_proof"]
+
+def test_zkp_invalid_inputs():
+    """Test ZKP with edge cases like negative age or missing location."""
+    # Negative age
+    result = generate_eligibility_proof(age=-1, location="Mars")
+    assert result["is_eligible"] is False
+    
+    # Empty location
+    result = generate_eligibility_proof(age=20, location="")
+    assert result["is_eligible"] is True  # Logic currently only checks age
+    assert result["zkp_proof"] is not None
+

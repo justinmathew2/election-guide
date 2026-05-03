@@ -32,26 +32,43 @@ class QuestionRequest(BaseModel):
 class AnswerResponse(BaseModel):
     answer: str
 
-def get_corpus_name():
+# Global cache for corpus name and model to improve efficiency
+_CACHED_CORPUS_NAME = None
+_CACHED_MODEL = None
+
+def get_corpus_name() -> str:
+    """
+    Retrieves the RAG corpus name, caching it after the first successful read.
+    """
+    global _CACHED_CORPUS_NAME
+    if _CACHED_CORPUS_NAME:
+        return _CACHED_CORPUS_NAME
+        
     try:
         corpus_file_path = os.path.join(os.path.dirname(__file__), "..", "core", "corpus_name.txt")
-        with open(corpus_file_path, "r") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return os.getenv("RAG_CORPUS_NAME", "")
+        if os.path.exists(corpus_file_path):
+            with open(corpus_file_path, "r") as f:
+                _CACHED_CORPUS_NAME = f.read().strip()
+                return _CACHED_CORPUS_NAME
+    except Exception as e:
+        print(f"Error reading corpus file: {e}")
+        
+    # Fallback to environment variable
+    _CACHED_CORPUS_NAME = os.getenv("RAG_CORPUS_NAME", "")
+    return _CACHED_CORPUS_NAME
 
-@router.post("/ask", response_model=AnswerResponse)
-async def ask_advisor(request: QuestionRequest):
+def get_model():
+    """
+    Returns a cached instance of the GenerativeModel configured with the RAG tool.
+    """
+    global _CACHED_MODEL
+    if _CACHED_MODEL:
+        return _CACHED_MODEL
+        
     corpus_name = get_corpus_name()
     if not corpus_name:
-        raise HTTPException(
-            status_code=500, 
-            detail="RAG Corpus Name not configured. Please run backend/core/ingest.py first."
-        )
+        return None
         
-    start_time = time.time()
-        
-    # Define the RAG tool pointing to our election documents corpus
     rag_retrieval_tool = Tool.from_retrieval(
         retrieval=rag.Retrieval(
             source=rag.VertexRagStore(
@@ -61,8 +78,7 @@ async def ask_advisor(request: QuestionRequest):
         )
     )
     
-    # Initialize Gemini 1.5 Flash model with the RAG tool
-    model = GenerativeModel(
+    _CACHED_MODEL = GenerativeModel(
         model_name="gemini-1.5-flash-001",
         tools=[rag_retrieval_tool],
         system_instruction=(
@@ -71,6 +87,21 @@ async def ask_advisor(request: QuestionRequest):
             "If the information is not in the documents, state that you do not know."
         )
     )
+    return _CACHED_MODEL
+
+@router.post("/ask", response_model=AnswerResponse)
+async def ask_advisor(request: QuestionRequest) -> AnswerResponse:
+    """
+    Handles user questions by querying the Vertex AI RAG corpus with optimized caching.
+    """
+    model = get_model()
+    if not model:
+        raise HTTPException(
+            status_code=500, 
+            detail="RAG Corpus Name not configured. Please run backend/core/ingest.py first."
+        )
+        
+    start_time = time.time()
     
     # Generate the response
     response = model.generate_content(request.question)
