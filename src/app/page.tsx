@@ -199,6 +199,8 @@ export default function Home() {
                     ? 'bg-primary-container/20 border-primary/20 text-on-primary-container' 
                     : 'bg-error-container/20 border-error/20 text-on-error-container'
                 }`}
+                role="status"
+                aria-live="polite"
               >
                 <div className="shrink-0 pt-1">
                   {zkpResult.is_eligible ? <CheckCircle2 className="w-6 h-6 text-primary" /> : <AlertCircle className="w-6 h-6 text-error" />}

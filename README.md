@@ -53,3 +53,4 @@ graph TD
     B -->|State| E[(Firestore)]
     B -->|Secrets| F[Secret Manager]
     B -->|Events| G[Cloud Logging]
+```

@@ -6,13 +6,16 @@ from core.zkp import generate_eligibility_proof
 router = APIRouter()
 
 class JourneyResponse(BaseModel):
+    """Response model for journey state."""
     state: JourneyState
 
 class EligibilityRequest(BaseModel):
+    """Request model for verifying eligibility."""
     age: int
     location: str
 
 class EligibilityResponse(BaseModel):
+    """Response model containing eligibility result and optional ZKP proof."""
     is_eligible: bool
     zkp_proof: str | None
     message: str

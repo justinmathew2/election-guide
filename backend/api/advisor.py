@@ -1,6 +1,7 @@
 import os
 import time
 import hashlib
+import logging
 import vertexai
 from vertexai.preview import rag
 from vertexai.generative_models import GenerativeModel, Tool
@@ -12,13 +13,16 @@ from core.secrets import get_secret
 
 router = APIRouter()
 
+# Set up local fallback logger
+fallback_logger = logging.getLogger(__name__)
+
 # Initialize Google Cloud Logging
 try:
     logging_client = google.cloud.logging.Client()
     logger = logging_client.logger("election-advisor-analytics")
 except Exception as e:
-    print(f"Cloud Logging init failed (fallback to console): {e}")
-    logger = None
+    fallback_logger.warning(f"Cloud Logging init failed (fallback to console): {e}")
+    logger = fallback_logger
 
 # Attempt to load Project ID from Secret Manager (fallback to env)
 PROJECT_ID = get_secret("VERTEX_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT", "your-project-id")
@@ -27,9 +31,11 @@ LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 vertexai.init(project=PROJECT_ID, location=LOCATION)
 
 class QuestionRequest(BaseModel):
+    """Request model for asking the advisor a question."""
     question: str
 
 class AnswerResponse(BaseModel):
+    """Response model for the advisor's answer."""
     answer: str
 
 # Global cache for corpus name and model to improve efficiency
@@ -50,8 +56,12 @@ def get_corpus_name() -> str:
             with open(corpus_file_path, "r") as f:
                 _CACHED_CORPUS_NAME = f.read().strip()
                 return _CACHED_CORPUS_NAME
+    except OSError as e:
+        if logger:
+            logger.error(f"OS error reading corpus file: {e}")
     except Exception as e:
-        print(f"Error reading corpus file: {e}")
+        if logger:
+            logger.error(f"Unexpected error reading corpus file: {e}")
         
     # Fallback to environment variable
     _CACHED_CORPUS_NAME = os.getenv("RAG_CORPUS_NAME", "")
@@ -111,13 +121,14 @@ async def ask_advisor(request: QuestionRequest) -> AnswerResponse:
     # Log anonymized query (SHA-256 hash) and latency
     if logger:
         anonymized_query_hash = hashlib.sha256(request.question.encode("utf-8")).hexdigest()
-        logger.log_struct(
-            {
-                "query_hash": anonymized_query_hash,
-                "latency_ms": latency_ms,
-                "status": "success",
-            },
-            severity="INFO"
-        )
+        log_payload = {
+            "query_hash": anonymized_query_hash,
+            "latency_ms": latency_ms,
+            "status": "success",
+        }
+        if hasattr(logger, "log_struct"):
+            logger.log_struct(log_payload, severity="INFO")
+        else:
+            logger.info(f"Analytics: {log_payload}")
     
     return AnswerResponse(answer=response.text)
